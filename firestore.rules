@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Admin lookup via trusted collection or verified email
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email_verified == true && request.auth.token.email in ['hindimahatma0@gmail.com'])
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- Tournaments Collection ---
+    match /tournaments/{tournamentId} {
+      allow get, list: if true;
+
+      allow create: if isAdmin() &&
+        isValidId(tournamentId) &&
+        incoming().title is string && incoming().title.size() <= 100 &&
+        incoming().totalSlots is number && incoming().totalSlots > 0 &&
+        incoming().status in ['upcoming', 'open', 'live', 'completed', 'cancelled'];
+
+      allow update: if isAdmin() &&
+        isValidId(tournamentId) &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'map', 'gameMode', 'category', 'entryFee', 'prizePool',
+            'firstPrize', 'secondPrize', 'thirdPrize', 'perKill', 'matchDateTime',
+            'totalSlots', 'registeredCount', 'status', 'roomId', 'roomPassword',
+            'credentialsReleased', 'rules', 'bannerUrl', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isAdmin();
+
+      // Nested Registrations for Tournament
+      match /registrations/{registrationId} {
+        // Only registered player or admin can view the registration
+        allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+        allow list: if isSignedIn() && (
+          (request.query.limit <= 100 && resource.data.userId == request.auth.uid) ||
+          isAdmin()
+        );
+
+        // Player registers themselves
+        allow create: if isSignedIn() &&
+          isValidId(registrationId) &&
+          incoming().userId == request.auth.uid &&
+          incoming().freeFireUid is string && incoming().freeFireUid.size() <= 20 &&
+          incoming().status == 'pending';
+
+        // Admin approves / rejects registrations
+        allow update: if isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'slotNumber']);
+
+        allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid && existing().status == 'pending');
+      }
+    }
+
+    // --- User Profiles ---
+    match /users/{userId} {
+      // Public can see player profile badge, but private data is secured
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && resource.data.id == request.auth.uid;
+
+      allow create: if isOwner(userId) &&
+        incoming().email is string &&
+        incoming().freeFireUid is string && incoming().freeFireUid.size() <= 20 &&
+        incoming().role == 'player'; // Cannot self-assign admin
+
+      allow update: if (isOwner(userId) || isAdmin()) &&
+        // Normal players cannot modify their role
+        (!incoming().diff(existing()).affectedKeys().hasAny(['role']) || isAdmin()) &&
+        incoming().freeFireUid is string && incoming().freeFireUid.size() <= 20;
+
+      allow delete: if isAdmin();
+    }
+
+    // --- Announcements ---
+    match /announcements/{announcementId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Global Leaderboard ---
+    match /leaderboard/{entryId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Admin registry ---
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; // System provisioned only
+    }
+  }
+}

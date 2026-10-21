@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "Tournament": {
+      "title": "Tournament",
+      "description": "Free Fire Esports Tournament entity containing match schedule, slots, prize pool, and room credentials",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique tournament identifier" },
+        "title": { "type": "string", "maxLength": 100, "description": "Tournament title" },
+        "map": { "type": "string", "enum": ["Bermuda", "Purgatory", "Kalahari", "Alpine", "NexTerra"] },
+        "gameMode": { "type": "string", "enum": ["solo", "duo", "squad"] },
+        "category": { "type": "string", "enum": ["free", "paid"] },
+        "entryFee": { "type": "number", "description": "Entry fee in rupees (0 for free)" },
+        "prizePool": { "type": "number", "description": "Total prize pool" },
+        "firstPrize": { "type": "number", "description": "Winner payout" },
+        "secondPrize": { "type": "number" },
+        "thirdPrize": { "type": "number" },
+        "perKill": { "type": "number", "description": "Bounty per kill" },
+        "matchDateTime": { "type": "string", "format": "date-time" },
+        "totalSlots": { "type": "number", "description": "Maximum slots allowed" },
+        "registeredCount": { "type": "number", "description": "Current registered count" },
+        "status": { "type": "string", "enum": ["upcoming", "open", "live", "completed", "cancelled"] },
+        "roomId": { "type": "string", "maxLength": 30 },
+        "roomPassword": { "type": "string", "maxLength": 30 },
+        "credentialsReleased": { "type": "boolean" },
+        "version": { "type": "string" },
+        "bannerUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "map", "gameMode", "category", "matchDateTime", "totalSlots", "status"]
+    },
+    "Registration": {
+      "title": "Registration",
+      "description": "Player or team registration for a tournament",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tournamentId": { "type": "string" },
+        "userId": { "type": "string" },
+        "playerName": { "type": "string", "maxLength": 60 },
+        "playerPhone": { "type": "string", "maxLength": 20 },
+        "freeFireUid": { "type": "string", "maxLength": 20, "pattern": "^[0-9]{8,12}$" },
+        "freeFireIgn": { "type": "string", "maxLength": 30 },
+        "gameMode": { "type": "string", "enum": ["solo", "duo", "squad"] },
+        "teamName": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "registeredAt": { "type": "string", "format": "date-time" },
+        "slotNumber": { "type": "number" }
+      },
+      "required": ["tournamentId", "userId", "playerName", "freeFireUid", "freeFireIgn", "status"]
+    },
+    "PlayerProfile": {
+      "title": "PlayerProfile",
+      "description": "User profile with Free Fire UID and competitive stats",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string", "maxLength": 60 },
+        "freeFireUid": { "type": "string", "maxLength": 20, "pattern": "^[0-9]{8,12}$" },
+        "freeFireIgn": { "type": "string", "maxLength": 30 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "avatarUrl": { "type": "string" },
+        "matchesPlayed": { "type": "number" },
+        "totalKills": { "type": "number" },
+        "totalWins": { "type": "number" },
+        "totalEarnings": { "type": "number" },
+        "rank": { "type": "string" },
+        "level": { "type": "number" },
+        "role": { "type": "string", "enum": ["player", "admin"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "displayName", "freeFireUid", "freeFireIgn", "role"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Official esports announcements and tournament notices",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "titleEn": { "type": "string", "maxLength": 120 },
+        "titleHi": { "type": "string", "maxLength": 120 },
+        "messageEn": { "type": "string", "maxLength": 1000 },
+        "messageHi": { "type": "string", "maxLength": 1000 },
+        "priority": { "type": "string", "enum": ["normal", "urgent"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "pinned": { "type": "boolean" },
+        "tournamentId": { "type": "string" }
+      },
+      "required": ["titleEn", "messageEn", "priority", "createdAt"]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Competitive leaderboard ranking and match performance record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "rank": { "type": "number" },
+        "playerName": { "type": "string", "maxLength": 60 },
+        "freeFireUid": { "type": "string", "maxLength": 20 },
+        "kills": { "type": "number" },
+        "matches": { "type": "number" },
+        "wins": { "type": "number" },
+        "points": { "type": "number" },
+        "prizeWon": { "type": "number" },
+        "isVerified": { "type": "boolean" }
+      },
+      "required": ["rank", "playerName", "freeFireUid", "kills", "points", "isVerified"]
+    }
+  },
+  "firestore": {
+    "/tournaments/{tournamentId}": {
+      "schema": { "$ref": "#/entities/Tournament" },
+      "description": "Public tournament listings and schedules"
+    },
+    "/tournaments/{tournamentId}/registrations/{registrationId}": {
+      "schema": { "$ref": "#/entities/Registration" },
+      "description": "Participant registrations per tournament"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/PlayerProfile" },
+      "description": "Registered player profiles with competitive stats"
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Announcement" },
+      "description": "Tournament announcements broadcast to all players"
+    },
+    "/leaderboard/{entryId}": {
+      "schema": { "$ref": "#/entities/LeaderboardEntry" },
+      "description": "Global esports rankings and season points"
+    }
+  }
+}
